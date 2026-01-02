@@ -1,76 +1,124 @@
 import { useState } from 'react';
-import { User, Mail, Phone, CreditCard, FileText } from 'lucide-react';
+import { User, Mail, Phone, CreditCard, FileText, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Flight, Booking, generateTrackingCode, generateSeat, generateGate } from '@/lib/flightData';
+import { useAuth } from '@/hooks/useAuth';
+import { createBooking, generateTrackingCode, calculateBoardingTime, DbFlight, formatFlightTime, calculateDuration } from '@/lib/flightService';
+import { toast } from 'sonner';
+
+interface Seat {
+  id: string;
+  seat_number: string;
+  seat_class: string;
+  price_modifier: number;
+}
 
 interface BookingFormProps {
-  flight: Flight;
-  onComplete: (booking: Booking) => void;
+  flight: DbFlight;
+  selectedSeat: Seat;
+  onComplete: (booking: {
+    trackingCode: string;
+    flight: DbFlight;
+    passenger: {
+      firstName: string;
+      lastName: string;
+      email: string;
+      phone: string;
+    };
+    seat: string;
+    gate: string;
+    boardingTime: string;
+    totalPrice: number;
+  }) => void;
   onBack: () => void;
 }
 
-export function BookingForm({ flight, onComplete, onBack }: BookingFormProps) {
+export function BookingForm({ flight, selectedSeat, onComplete, onBack }: BookingFormProps) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    email: '',
+    email: user?.email || '',
     phone: '',
     passport: '',
   });
   const [isProcessing, setIsProcessing] = useState(false);
 
+  const totalPrice = Number(flight.price) * Number(selectedSeat.price_modifier);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
 
-    // Simulate processing
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      const trackingCode = generateTrackingCode();
+      const boardingTime = calculateBoardingTime(flight.departure_time);
 
-    const booking: Booking = {
-      id: Math.random().toString(36).substr(2, 9),
-      trackingCode: generateTrackingCode(),
-      flight,
-      passenger: formData,
-      seat: generateSeat(),
-      gate: generateGate(),
-      boardingTime: calculateBoardingTime(flight.departureTime),
-      status: 'confirmed',
-      bookedAt: new Date().toISOString(),
-    };
+      await createBooking({
+        user_id: user?.id,
+        flight_id: flight.id,
+        tracking_code: trackingCode,
+        passenger_name: `${formData.firstName} ${formData.lastName}`,
+        passenger_email: formData.email,
+        passenger_phone: formData.phone || undefined,
+        seat_number: selectedSeat.seat_number,
+        gate: flight.gate || 'TBA',
+        boarding_time: boardingTime,
+        total_price: totalPrice,
+      });
 
-    onComplete(booking);
-  };
+      onComplete({
+        trackingCode,
+        flight,
+        passenger: formData,
+        seat: selectedSeat.seat_number,
+        gate: flight.gate || 'TBA',
+        boardingTime,
+        totalPrice,
+      });
 
-  const calculateBoardingTime = (departureTime: string): string => {
-    const [hours, minutes] = departureTime.split(':').map(Number);
-    const boardingHours = hours === 0 ? 23 : hours - 1;
-    return `${boardingHours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+      toast.success('Booking confirmed!');
+    } catch (error) {
+      console.error('Error creating booking:', error);
+      toast.error('Failed to create booking. Please try again.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
     <div className="bg-card rounded-2xl border border-border p-6 md:p-8 animate-slide-up">
-      <h2 className="text-2xl font-bold text-foreground mb-2">Passenger Details</h2>
-      <p className="text-muted-foreground mb-6">
-        Please enter your details exactly as they appear on your passport
-      </p>
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="ghost" size="icon" onClick={onBack}>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">Passenger Details</h2>
+          <p className="text-muted-foreground">
+            Please enter your details exactly as they appear on your passport
+          </p>
+        </div>
+      </div>
 
       {/* Flight Summary */}
       <div className="bg-muted/50 rounded-xl p-4 mb-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <p className="font-semibold text-foreground">{flight.flightNumber}</p>
+            <p className="font-semibold text-foreground">{flight.flight_number}</p>
             <p className="text-sm text-muted-foreground">{flight.airline}</p>
           </div>
           <div className="text-center">
             <p className="font-medium text-foreground">
-              {flight.originCode} → {flight.destinationCode}
+              {flight.origin_code} → {flight.destination_code}
             </p>
-            <p className="text-sm text-muted-foreground">{flight.departureTime} - {flight.arrivalTime}</p>
+            <p className="text-sm text-muted-foreground">
+              {formatFlightTime(flight.departure_time)} - {formatFlightTime(flight.arrival_time)}
+            </p>
           </div>
-          <div className="text-right">
-            <p className="text-2xl font-bold text-foreground">${flight.price}</p>
+          <div className="sm:text-right">
+            <p className="text-sm text-muted-foreground">Seat {selectedSeat.seat_number}</p>
+            <p className="text-2xl font-bold text-foreground">${totalPrice.toFixed(2)}</p>
           </div>
         </div>
       </div>
@@ -157,7 +205,7 @@ export function BookingForm({ flight, onComplete, onBack }: BookingFormProps) {
 
         <div className="flex flex-col sm:flex-row gap-4 pt-4">
           <Button type="button" variant="outline" onClick={onBack} className="sm:flex-1">
-            Back to Flights
+            Back to Seat Selection
           </Button>
           <Button type="submit" variant="accent" size="lg" className="sm:flex-1" disabled={isProcessing}>
             {isProcessing ? (
@@ -168,7 +216,7 @@ export function BookingForm({ flight, onComplete, onBack }: BookingFormProps) {
             ) : (
               <>
                 <CreditCard className="w-4 h-4 mr-2" />
-                Confirm Booking
+                Confirm Booking - ${totalPrice.toFixed(2)}
               </>
             )}
           </Button>
