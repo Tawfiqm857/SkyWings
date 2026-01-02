@@ -297,7 +297,6 @@ export default function SearchResults() {
                     arrivalTime: formatFlightTime(flight.arrival_time),
                     duration: calculateDuration(flight.departure_time, flight.arrival_time),
                     price: Number(flight.price),
-                    class: 'economy',
                     stops: 0,
                     aircraft: flight.aircraft_type,
                   }}
