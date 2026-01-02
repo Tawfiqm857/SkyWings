@@ -1,75 +1,93 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, Plane, AlertCircle, Printer, Download, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Header } from '@/components/Header';
 import { FlightTicket } from '@/components/FlightTicket';
-import { Booking, sampleFlights, generateSeat, generateGate } from '@/lib/flightData';
-
-// Simulated bookings database
-const simulatedBookings: Record<string, Booking> = {
-  SWAB1234: {
-    id: '1',
-    trackingCode: 'SWAB1234',
-    flight: sampleFlights[0],
-    passenger: {
-      firstName: 'John',
-      lastName: 'Smith',
-      email: 'john@example.com',
-      phone: '+1 234 567 8900',
-      passport: 'A12345678',
-    },
-    seat: '14A',
-    gate: 'B22',
-    boardingTime: '07:30',
-    status: 'confirmed',
-    bookedAt: new Date().toISOString(),
-  },
-  SWCD5678: {
-    id: '2',
-    trackingCode: 'SWCD5678',
-    flight: sampleFlights[2],
-    passenger: {
-      firstName: 'Emma',
-      lastName: 'Johnson',
-      email: 'emma@example.com',
-      phone: '+1 987 654 3210',
-      passport: 'B87654321',
-    },
-    seat: '22F',
-    gate: 'A15',
-    boardingTime: '21:00',
-    status: 'checked-in',
-    bookedAt: new Date().toISOString(),
-  },
-};
+import { FlightStatus } from '@/components/FlightStatus';
+import { fetchBookingByCode, formatFlightTime, calculateDuration } from '@/lib/flightService';
+import { Booking } from '@/lib/flightData';
 
 export default function TrackBooking() {
-  const [trackingCode, setTrackingCode] = useState('');
+  const [searchParams] = useSearchParams();
+  const [trackingCode, setTrackingCode] = useState(searchParams.get('code') || '');
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [flightId, setFlightId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Auto-search if code is in URL
+  useEffect(() => {
+    const code = searchParams.get('code');
+    if (code) {
+      setTrackingCode(code);
+      handleSearchWithCode(code);
+    }
+  }, [searchParams]);
+
+  const handleSearchWithCode = async (code: string) => {
     setError('');
     setBooking(null);
+    setFlightId(null);
     setIsSearching(true);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const found = await fetchBookingByCode(code);
 
-    const code = trackingCode.toUpperCase().trim();
-    const found = simulatedBookings[code];
-
-    if (found) {
-      setBooking(found);
-    } else {
-      setError('No booking found with this tracking code. Please check and try again.');
+      if (found) {
+        const flight = found.flight;
+        setFlightId(found.flight_id);
+        
+        // Transform to the Booking interface expected by FlightTicket
+        const bookingData: Booking = {
+          id: found.id,
+          trackingCode: found.tracking_code,
+          flight: {
+            id: flight.id,
+            airline: flight.airline,
+            flightNumber: flight.flight_number,
+            origin: flight.origin,
+            originCode: flight.origin_code,
+            destination: flight.destination,
+            destinationCode: flight.destination_code,
+            departureTime: formatFlightTime(flight.departure_time),
+            arrivalTime: formatFlightTime(flight.arrival_time),
+            duration: calculateDuration(flight.departure_time, flight.arrival_time),
+            price: Number(flight.price),
+            class: 'economy',
+            stops: 0,
+            aircraft: flight.aircraft_type,
+          },
+          passenger: {
+            firstName: found.passenger_name.split(' ')[0] || '',
+            lastName: found.passenger_name.split(' ').slice(1).join(' ') || '',
+            email: found.passenger_email,
+            phone: found.passenger_phone || '',
+            passport: '',
+          },
+          seat: found.seat_number,
+          gate: found.gate || 'TBA',
+          boardingTime: found.boarding_time ? formatFlightTime(found.boarding_time) : 'TBA',
+          status: found.status as Booking['status'],
+          bookedAt: found.created_at,
+        };
+        setBooking(bookingData);
+      } else {
+        setError('No booking found with this tracking code. Please check and try again.');
+      }
+    } catch (err) {
+      console.error('Error searching booking:', err);
+      setError('An error occurred while searching. Please try again.');
     }
 
     setIsSearching(false);
+  };
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await handleSearchWithCode(trackingCode);
   };
 
   const handlePrint = () => {
@@ -107,7 +125,7 @@ export default function TrackBooking() {
               Track Your Booking
             </h1>
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-              Enter your booking reference code to view your flight details and download your boarding pass
+              Enter your booking reference code to view your flight details, real-time status, and download your boarding pass
             </p>
           </div>
 
@@ -121,7 +139,7 @@ export default function TrackBooking() {
                     id="trackingCode"
                     value={trackingCode}
                     onChange={(e) => setTrackingCode(e.target.value.toUpperCase())}
-                    placeholder="e.g., SWAB1234"
+                    placeholder="e.g., SW2A3B4C"
                     className="text-lg font-mono tracking-wider"
                     maxLength={10}
                   />
@@ -138,12 +156,6 @@ export default function TrackBooking() {
                 </div>
               </div>
             </form>
-
-            {/* Demo codes hint */}
-            <p className="text-center text-sm text-muted-foreground mt-4">
-              Try demo codes: <span className="font-mono font-medium">SWAB1234</span> or{' '}
-              <span className="font-mono font-medium">SWCD5678</span>
-            </p>
           </div>
 
           {/* Error */}
@@ -158,7 +170,7 @@ export default function TrackBooking() {
 
           {/* Booking Result */}
           {booking && (
-            <div className="max-w-3xl mx-auto animate-slide-up">
+            <div className="max-w-4xl mx-auto animate-slide-up">
               {/* Status Badge */}
               <div className="flex items-center justify-between mb-6 no-print">
                 <div>
@@ -173,6 +185,13 @@ export default function TrackBooking() {
                   </span>
                 </div>
               </div>
+
+              {/* Flight Status with Real-time Updates */}
+              {flightId && (
+                <div className="mb-8 no-print">
+                  <FlightStatus flightId={flightId} bookingId={booking.id} />
+                </div>
+              )}
 
               {/* Ticket */}
               <div className="mb-8">

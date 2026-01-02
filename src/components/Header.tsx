@@ -1,12 +1,22 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Plane, Menu, X } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Plane, Menu, X, User, LogOut, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
   const navLinks = [
     { href: '/', label: 'Home' },
@@ -15,6 +25,11 @@ export function Header() {
   ];
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-card/80 backdrop-blur-md border-b border-border">
@@ -45,6 +60,37 @@ export function Header() {
             ))}
           </nav>
 
+          {/* Auth Section */}
+          <div className="hidden md:flex items-center gap-2">
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="gap-2">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-4 h-4 text-primary" />
+                    </div>
+                    <span className="text-sm font-medium">{user.email?.split('@')[0]}</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => navigate('/my-bookings')}>
+                    <Ticket className="w-4 h-4 mr-2" />
+                    My Bookings
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <Button variant="default" size="sm" onClick={() => navigate('/auth')}>
+                Sign In
+              </Button>
+            )}
+          </div>
+
           {/* Mobile Menu Button */}
           <Button
             variant="ghost"
@@ -74,6 +120,39 @@ export function Header() {
                 {link.label}
               </Link>
             ))}
+            <div className="mt-4 pt-4 border-t border-border px-4">
+              {user ? (
+                <>
+                  <Link
+                    to="/my-bookings"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="block py-3 text-sm font-medium text-foreground"
+                  >
+                    My Bookings
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleSignOut();
+                      setIsMenuOpen(false);
+                    }}
+                    className="block py-3 text-sm font-medium text-destructive"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
+                <Button
+                  variant="default"
+                  className="w-full"
+                  onClick={() => {
+                    navigate('/auth');
+                    setIsMenuOpen(false);
+                  }}
+                >
+                  Sign In
+                </Button>
+              )}
+            </div>
           </nav>
         )}
       </div>
