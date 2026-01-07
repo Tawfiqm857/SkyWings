@@ -91,6 +91,8 @@ export default function MyBookings() {
     };
   };
 
+  const formatPrice = (price: number) => `$${price.toFixed(2)}`;
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -171,7 +173,7 @@ export default function MyBookings() {
                         </div>
                       </div>
 
-                      {/* Date and details */}
+                      {/* Date and details (includes Price now) */}
                       <div className="flex items-center gap-6">
                         <div className="text-center">
                           <div className="flex items-center gap-2 text-muted-foreground mb-1">
@@ -190,24 +192,21 @@ export default function MyBookings() {
                           <p className="text-sm text-muted-foreground mb-1">Gate</p>
                           <p className="font-semibold text-foreground">{flight.gate || '--'}</p>
                         </div>
-<div className="text-center">
-  <p className="text-sm text-muted-foreground mb-1">Price</p>
-  <p className="font-semibold text-foreground">
-    ${booking.total_price.toFixed(2)}
-  </p>
-</div>
 
+                        <div className="text-center">
+                          <p className="text-sm text-muted-foreground mb-1">Price</p>
+                          <p className="font-semibold text-foreground">{formatPrice(booking.total_price)}</p>
+                        </div>
 
                         <ChevronRight className="w-5 h-5 text-muted-foreground hidden sm:block" />
                       </div>
                     </div>
 
                     {/* Tracking code */}
-                    <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                    <div className="mt-4 pt-4 border-t border-border">
                       <span className="text-sm text-muted-foreground">
                         Booking Reference: <span className="font-mono font-bold text-foreground">{booking.tracking_code}</span>
                       </span>
-                      <span className="text-lg font-bold text-foreground">${booking.total_price}</span>
                     </div>
                   </div>
                 );
