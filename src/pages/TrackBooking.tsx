@@ -25,11 +25,11 @@ export default function TrackBooking() {
   const [isSearching, setIsSearching] = useState(false);
   const [showPaymentTooltip, setShowPaymentTooltip] = useState(true);
 
-  // Auto-hide payment tooltip after 30 seconds
+  // Auto-hide payment tooltip after 6 seconds
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowPaymentTooltip(false);
-    }, 30000);
+    }, 6000);
     return () => clearTimeout(timer);
   }, []);
 
@@ -206,7 +206,7 @@ export default function TrackBooking() {
                           {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
                         </span>
                       </TooltipTrigger>
-                      <TooltipContent className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2">
+                      <TooltipContent className="bg-amber-500 text-white flex items-center gap-2 px-4 py-2 shadow-lg">
                         <BadgeCheck className="w-4 h-4" />
                         <span>Payment Confirmed</span>
                       </TooltipContent>
