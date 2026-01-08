@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plane, AlertCircle, Printer, Download, CheckCircle, Sparkles } from 'lucide-react';
+import { Search, Plane, AlertCircle, Printer, Download, CheckCircle, Sparkles, BadgeCheck } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,6 +23,15 @@ export default function TrackBooking() {
   const [flightId, setFlightId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [showPaymentTooltip, setShowPaymentTooltip] = useState(true);
+
+  // Auto-hide payment tooltip after 30 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowPaymentTooltip(false);
+    }, 30000);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Auto-search if code is in URL
   useEffect(() => {
@@ -179,14 +194,24 @@ export default function TrackBooking() {
               <div className="flex items-center justify-between mb-8 no-print">
                 <div>
                   <p className="text-sm text-muted-foreground mb-2 font-medium">Booking Status</p>
-                  <span
-                    className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold border ${getStatusColor(
-                      booking.status
-                    )}`}
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                    {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                  </span>
+                  <TooltipProvider>
+                    <Tooltip open={showPaymentTooltip}>
+                      <TooltipTrigger asChild>
+                        <span
+                          className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold border cursor-default ${getStatusColor(
+                            booking.status
+                          )}`}
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent className="bg-primary text-primary-foreground flex items-center gap-2 px-4 py-2">
+                        <BadgeCheck className="w-4 h-4" />
+                        <span>Payment Confirmed</span>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </div>
 
